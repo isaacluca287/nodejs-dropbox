@@ -27,7 +27,7 @@ function getLocalFilePathFromRequest(request) {
 }
 
 async function sendHeaders(request, reply, next) {
-  let filePath = path.join(ROOT_DIR, 'files', request.url)
+  let filePath = getLocalFilePathFromRequest(request)
   request.filePath = filePath
 
   if (filePath.indexOf(ROOT_DIR) !== 0) {
@@ -35,17 +35,23 @@ async function sendHeaders(request, reply, next) {
     return
   }
 
-  let stat = await fs.lstat(filePath)
+  try {
+    let stat = await fs.promise.lstat(filePath)
 
-  if (stat.isDirectory()) {
-    let files = await fs.readdir(filePath)
-    reply.body = JSON.stringify(files)
-    reply.setHeader('Content-Length', reply.body.length)
-    reply.setHeader('Content-Type', 'aplication/json')
-  } else {
-    reply.setHeader('Content-Length', stat.size)
-    let contentType = mimetype.contentType(path.extname(filePath))
-    reply.setHeader('Content-Type', contentType)
+    if (stat.isDirectory()) {
+      let files = await fs.readdir(filePath)
+      reply.body = JSON.stringify(files)
+      reply.setHeader('Content-Length', reply.body.length)
+      reply.setHeader('Content-Type', 'aplication/json')
+    } else {
+      reply.setHeader('Content-Length', stat.size)
+      let contentType = mimetype.contentType(path.extname(filePath))
+      reply.setHeader('Content-Type', contentType)
+    }
+  } catch(err) {
+    reply.setHeader('Content-Length', Object.keys(err).length)
+    reply.setHeader('Content-Type', 'application/json')
+    reply.status(400)
   }
 
   next();
@@ -97,11 +103,8 @@ async function main() {
     app.use(morgan('dev'))
   }
 
-  app.head('*', sendHeaders, headHandler)
-  app.get('/', sendHeaders, (request, reply) => {
-    reply.end("Welcome to Isaac's nodejs dropbox project\n")
-  });
-  app.get('/:file', sendHeaders, readHandler)
+  app.head('/:file', sendHeaders, headHandler)
+  app.get('/:file', readHandler)
 
   await app.listen(PORT)
   console.log(`LISTENING @ http://127.0.0.1:${PORT}`)
