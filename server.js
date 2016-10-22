@@ -4,16 +4,51 @@ require('./helper')
 
 const path = require('path')
 const fs = require('fs').promise
-const Hapi = require('hapi')
-const asyncHandlerPlugin = require('hapi-async-handler')
+const express= require('express')
+const morgan = require('morgan')
+const nodeify = require('bluebird-nodeify')
+const mimetype = require('mime-types')
+// const Hapi = require('hapi')
+// const asyncHandlerPlugin = require('hapi-async-handler')
 
-// const cat = require('./cat')
+require('songbird')
+
+const NODE_ENV = process.env.NODE_ENV
+const PORT = process.env.PORT || 8000
+const ROOT_DIR = path.resolve(process.cwd())
+
+const cat = require('./cat')
 // const rm = require('./rm')
 // const mkdir = require('./mkdir')
 // const touch = require('./touch')
 
 function getLocalFilePathFromRequest(request) {
-  return path.join(__dirname, 'files', request.params.file)
+  return path.join(ROOT_DIR, 'files', request.params.file)
+}
+
+async function sendHeaders(request, reply, next) {
+  let filePath = path.join(ROOT_DIR, 'files', request.url)
+  request.filePath = filePath
+
+  if (filePath.indexOf(ROOT_DIR) !== 0) {
+    reply.send(400, 'Invalid path')
+    return
+  }
+
+  let stat = await fs.lstat(filePath)
+
+  if (stat.isDirectory()) {
+    let files = await fs.readdir(filePath)
+    reply.body = JSON.stringify(files)
+    reply.setHeader('Content-Length', reply.body.length)
+    reply.setHeader('Content-Type', 'aplication/json')
+  } else {
+    reply.setHeader('Content-Length', stat.size)
+    let contentType = mimetype.contentType(path.extname(filePath))
+    reply.setHeader('Content-Type', contentType)
+  }
+
+  next();
 }
 
 async function readHandler(request, reply) {
@@ -21,7 +56,7 @@ async function readHandler(request, reply) {
 
   console.log(`Reading ${filePath}`)
   const data = await cat(filePath)
-  reply(data)
+  reply.end(data + '\n')
 }
 
 async function createHandler(request, reply) {
@@ -51,53 +86,25 @@ async function deleteHandler(request, reply) {
   reply()
 }
 
+async function headHandler(request, reply) {
+  reply.end()
+}
+
 async function main() {
-  const port = 8000
-  const server = new Hapi.Server({
-    debug: {
-      request: ['error']
-    }
-  })
-  server.register(asyncHandlerPlugin)
-  server.connection({ port })
+  let app = express()
 
-  server.route([
-    // READ
-    {
-      method: 'GET',
-      path: '/{file*}',
-      handler: {
-        async: readHandler
-      }
-    },
-    // CREATE
-    {
-      method: 'PUT',
-      path: '/{file*}',
-      handler: {
-        async: createHandler
-      }
-    },
-    // UPDATE
-    {
-      method: 'POST',
-      path: '/{file*}',
-      handler: {
-        async: updateHandler
-      }
-    },
-    // DELETE
-    {
-      method: 'DELETE',
-      path: '/{file*}',
-      handler: {
-        async: deleteHandler
-      }
-    }
-  ])
+  if (NODE_ENV === 'development') {
+    app.use(morgan('dev'))
+  }
 
-  await server.start()
-  console.log(`LISTENING @ http://127.0.0.1:${port}`)
+  app.head('*', sendHeaders, headHandler)
+  app.get('/', sendHeaders, (request, reply) => {
+    reply.end("Welcome to Isaac's nodejs dropbox project\n")
+  });
+  app.get('/:file', sendHeaders, readHandler)
+
+  await app.listen(PORT)
+  console.log(`LISTENING @ http://127.0.0.1:${PORT}`)
 }
 
 main()
