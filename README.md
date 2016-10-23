@@ -14,7 +14,7 @@ Time spent: 24 hours (3 days working - estimating)
 - [x] Client can make GET requests to get file or directory contents
 - [ ] Client can download a directory as an archive
 - [x] Client can make HEAD request to get just the GET headers
-- [ ] Client can make PUT requests to create new directories and files with content
+- [x] Client can make PUT requests to create new directories and files with content
 - [ ] Client can make POST requests to update the contents of a file
 - [X] Client can make DELETE requests to delete files and folders
 - [x] Server will serve from `--dir` or cwd as root

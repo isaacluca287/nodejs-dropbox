@@ -8,6 +8,7 @@ const express= require('express')
 const morgan = require('morgan')
 const nodeify = require('bluebird-nodeify')
 const mimetype = require('mime-types')
+const bodyParser = require('body-parser')
 // const Hapi = require('hapi')
 // const asyncHandlerPlugin = require('hapi-async-handler')
 
@@ -20,7 +21,7 @@ const ROOT_DIR = path.resolve(process.cwd())
 const cat = require('./cat')
 const rm = require('./rm')
 // const mkdir = require('./mkdir')
-// const touch = require('./touch')
+const touch = require('./touch')
 
 function getLocalFilePathFromRequest(request) {
   return path.join(ROOT_DIR, 'files', request.params.file)
@@ -71,9 +72,19 @@ async function createHandler(request, reply) {
 
   console.log(`Creating ${filePath}`)
 
-  const stat = await fs.stat(filePath)
-  await stat.isDirectory() ? mkdir(filePath) : touch(filePath)
-  reply()
+  try {
+    const stat = await fs.lstat(filePath)
+
+    reply.status(405)
+  } catch(err) {
+    await touch(filePath)
+
+    if (request.body.length) {
+      let data = await fs.writeFile(filePath, request.body)
+    }
+  }
+
+  reply.end('\n')
 }
 
 async function updateHandler(request, reply) {
@@ -81,7 +92,7 @@ async function updateHandler(request, reply) {
 
   console.log(`Updating ${filePath}`)
   await fs.writeFile(filePath, request.payload)
-  reply()
+  reply.end('\n')
 }
 
 async function deleteHandler(request, reply) {
@@ -105,6 +116,7 @@ async function main() {
 
   app.head('/:file', sendHeaders, headHandler)
   app.get('/:file', readHandler)
+  app.put('/:file', bodyParser.raw({ type: '*/*' }), createHandler)
   app.delete('/:file', deleteHandler)
 
   await app.listen(PORT)
