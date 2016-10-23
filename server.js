@@ -91,7 +91,19 @@ async function updateHandler(request, reply) {
   const filePath = getLocalFilePathFromRequest(request)
 
   console.log(`Updating ${filePath}`)
-  await fs.writeFile(filePath, request.payload)
+
+  try {
+    const stat = await fs.lstat(filePath)
+
+    if (request.body.length) {
+      let data = await fs.writeFile(filePath, request.body)
+    } else {
+      reply.status(405)
+    }
+  } catch(err) {
+    reply.status(405)
+  }
+
   reply.end('\n')
 }
 
@@ -117,6 +129,7 @@ async function main() {
   app.head('/:file', sendHeaders, headHandler)
   app.get('/:file', readHandler)
   app.put('/:file', bodyParser.raw({ type: '*/*' }), createHandler)
+  app.post('/:file', bodyParser.raw({ type: '*/*' }), updateHandler)
   app.delete('/:file', deleteHandler)
 
   await app.listen(PORT)
