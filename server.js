@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 8000
 const ROOT_DIR = path.resolve(process.cwd())
 
 const cat = require('./cat')
-// const rm = require('./rm')
+const rm = require('./rm')
 // const mkdir = require('./mkdir')
 // const touch = require('./touch')
 
@@ -88,8 +88,8 @@ async function deleteHandler(request, reply) {
   const filePath = getLocalFilePathFromRequest(request)
 
   console.log(`Deleting ${filePath}`)
-  await rm(filePath)
-  reply()
+  const data = await rm(filePath)
+  reply.end(data + '\n')
 }
 
 async function headHandler(request, reply) {
@@ -105,6 +105,7 @@ async function main() {
 
   app.head('/:file', sendHeaders, headHandler)
   app.get('/:file', readHandler)
+  app.delete('/:file', deleteHandler)
 
   await app.listen(PORT)
   console.log(`LISTENING @ http://127.0.0.1:${PORT}`)
