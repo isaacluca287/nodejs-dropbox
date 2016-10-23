@@ -10,6 +10,7 @@ const nodeify = require('bluebird-nodeify')
 const mimetype = require('mime-types')
 const bodyParser = require('body-parser')
 const Promise = require('songbird')
+const archiver = require('archiver')
 // const Hapi = require('hapi')
 // const asyncHandlerPlugin = require('hapi-async-handler')
 
@@ -73,8 +74,21 @@ async function readHandler(request, reply) {
       data = await cat(filePath)
     } else {
       data = await ls(filePath)
-      data = JSON.stringify(data)
-      reply.setHeader('Content-Type', 'application/json')
+
+      if (request.headers.accept !== "application/x-gtar") {
+        data = JSON.stringify(data)
+        reply.setHeader('Content-Type', 'application/json')
+      } else {
+        let archive = archiver('zip')
+        archive.pipe(reply)
+
+        archive.bulk([
+          { expand: true, cwd: './', src: ['**'], dest: './' }
+        ])
+
+        archive.finalize()
+        reply.setHeader('Content-Type', 'application/x-gtar')
+      }
     }
   } catch(err) {
     reply.status(405)
