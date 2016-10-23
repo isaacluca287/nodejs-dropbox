@@ -9,6 +9,7 @@ const morgan = require('morgan')
 const nodeify = require('bluebird-nodeify')
 const mimetype = require('mime-types')
 const bodyParser = require('body-parser')
+const Promise = require('songbird')
 // const Hapi = require('hapi')
 // const asyncHandlerPlugin = require('hapi-async-handler')
 
@@ -19,6 +20,7 @@ const PORT = process.env.PORT || 8000
 const ROOT_DIR = path.resolve(process.cwd())
 
 const cat = require('./cat')
+const ls = require('./ls')
 const rm = require('./rm')
 // const mkdir = require('./mkdir')
 const touch = require('./touch')
@@ -60,9 +62,24 @@ async function sendHeaders(request, reply, next) {
 
 async function readHandler(request, reply) {
   const filePath = getLocalFilePathFromRequest(request)
+  let data = ''
 
   console.log(`Reading ${filePath}`)
-  const data = await cat(filePath)
+
+  try {
+    let stat = await fs.lstat(filePath)
+
+    if (!stat.isDirectory()) {
+      data = await cat(filePath)
+    } else {
+      data = await ls(filePath)
+      data = JSON.stringify(data)
+      reply.setHeader('Content-Type', 'application/json')
+    }
+  } catch(err) {
+    reply.status(405)
+  }
+
   reply.end(data + '\n')
 }
 

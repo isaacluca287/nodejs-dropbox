@@ -11,19 +11,11 @@ async function cat(filePath) {
     let fileData = await fs.readFile(filePath)
     fileData = fileName + ":\n\n" + fileData
     return fileData
-  } catch(err) {
-
-    try {
-      let fileStatChecking = await fs.lstat(filePath)
-      return fileName + ": Is a directory"
-    } catch (err) {
-      return fileName + ": No such file or directory"
-    }
-  }
+  } catch(err) {}
 }
 
 function main(filePath) {
-  return filePath ? cat(filePath) : null
+  return cat(filePath)
 }
 
 module.exports = main
