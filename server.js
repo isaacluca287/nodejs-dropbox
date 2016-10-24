@@ -11,6 +11,7 @@ const mimetype = require('mime-types')
 const bodyParser = require('body-parser')
 const Promise = require('songbird')
 const archiver = require('archiver')
+const argv = require('yargs').argv
 // const Hapi = require('hapi')
 // const asyncHandlerPlugin = require('hapi-async-handler')
 
@@ -18,7 +19,7 @@ require('songbird')
 
 const NODE_ENV = process.env.NODE_ENV
 const PORT = process.env.PORT || 8000
-const ROOT_DIR = path.resolve(process.cwd())
+const ROOT_DIR = path.resolve(argv.dir || process.cwd())
 
 const cat = require('./cat')
 const ls = require('./ls')
@@ -72,6 +73,8 @@ async function readHandler(request, reply) {
 
     if (!stat.isDirectory()) {
       data = await cat(filePath)
+      let contentType = mimetype.contentType(path.extname(filePath))
+      reply.setHeader('Content-Type', contentType)
     } else {
       data = await ls(filePath)
 
